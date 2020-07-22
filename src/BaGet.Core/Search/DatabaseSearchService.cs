@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using BaGet.Protocol.Models;
@@ -210,10 +211,20 @@ namespace BaGet.Core
 
             search = AddSearchFilters(search);
 
+            var tags = string.Empty;
             if (!string.IsNullOrEmpty(query))
             {
                 query = query.ToLower();
-                search = search.Where(p => p.Id.ToLower().Contains(query));
+                if (query.StartsWith("tags:"))
+                {
+                    var pattern = @"tags:""(?<tags>.*)""";
+                    var matches = Regex.Matches(query, pattern, RegexOptions.IgnoreCase);
+                    tags = matches[0].Groups["tags"].Value;
+                }
+                else
+                {
+                    search = search.Where(p => p.Id.ToLower().Contains(query));
+                }
             }
 
             var packageIds = search.Select(p => p.Id)
@@ -242,6 +253,11 @@ namespace BaGet.Core
             search = AddSearchFilters(search);
 
             var results = await search.ToListAsync(cancellationToken);
+
+            if (!string.IsNullOrEmpty(tags))
+            {
+                results = results.Where(r => r.Tags.Contains(tags)).ToList();
+            }
 
             return results.GroupBy(p => p.Id).ToList();
         }
